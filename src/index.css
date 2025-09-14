@@ -1,0 +1,32 @@
+/* src/index.css */
+
+/* Import Tailwind's layers */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Optional: custom base styles */
+body {
+  @apply bg-gray-100 text-gray-900 antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-semibold text-gray-800;
+}
+
+input, button {
+  @apply font-sans;
+}
+
+button {
+  @apply bg-blue-600 text-white rounded-lg px-4 py-2 font-medium transition;
+}
+
+button:hover {
+  @apply bg-blue-700;
+}
+
+/* Utility container for centering */
+.container {
+  @apply max-w-lg mx-auto p-6;
+}
