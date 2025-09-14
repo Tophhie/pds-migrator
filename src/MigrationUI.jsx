@@ -9,10 +9,12 @@ export default function MigrationUI() {
     email: "",
     handle: "",
     plcToken: "",
+    twoFactorCode: "", // NEW
   });
   const [status, setStatus] = useState("");
   const [migrator, setMigrator] = useState(null);
   const [progressStage, setProgressStage] = useState(0);
+  const [needs2FA, setNeeds2FA] = useState(false); // NEW
 
   const stages = [
     "Login",
@@ -24,7 +26,7 @@ export default function MigrationUI() {
   ];
 
   const updateField = (field, value) => {
-    setForm({ ...form, [field]: value });
+    setForm((f) => ({ ...f, [field]: value }));
   };
 
   function statusHandler(msg) {
@@ -38,25 +40,58 @@ export default function MigrationUI() {
     else if (lower.includes("plc")) setProgressStage(6);
   }
 
+  async function runMigrate(with2FA = false) {
+    const m = migrator ?? new SimpleMigrator("https://tophhie.social");
+    if (!migrator) setMigrator(m);
+
+    await m.migrate({
+      oldHandle: form.oldHandle,
+      password: form.password,
+      email: form.email,
+      handle: form.handle,
+      statusUpdateHandler: statusHandler,
+      twoFactorCode: with2FA ? form.twoFactorCode : null, // pass only when we have it
+    });
+  }
+
   async function startMigration() {
     try {
       setStatus("Starting migration...");
       setProgressStage(0);
-      const m = new SimpleMigrator("https://tophhie.social");
-      setMigrator(m);
-
-      await m.migrate({
-        oldHandle: form.oldHandle,
-        password: form.password,
-        email: form.email,
-        handle: form.handle,
-        statusUpdateHandler: statusHandler,
-      });
-
+      setNeeds2FA(false);
+      await runMigrate(false);
       setStatus("Check your email for a PLC token.");
       setStep(2);
     } catch (err) {
-      setStatus(`❌ ${err.message}`);
+      // Some PDSes return a structured error with .error, others only message
+      const code = err?.error || "";
+      if (
+        code === "AuthFactorTokenRequired" ||
+        /auth.*factor.*required/i.test(err?.message || "")
+      ) {
+        setNeeds2FA(true);
+        setStatus(
+          "Two-factor required. Check your email for the code, enter it below, then continue."
+        );
+        return;
+      }
+      setStatus(`❌ ${err.message || "Migration failed"}`);
+    }
+  }
+
+  async function continueWith2FA(e) {
+    if (e) e.preventDefault();
+    try {
+      if (!form.twoFactorCode.trim()) {
+        setStatus("Please enter your 2FA code.");
+        return;
+      }
+      setStatus("Verifying 2FA and continuing migration…");
+      await runMigrate(true);
+      setStatus("Check your email for a PLC token.");
+      setStep(2);
+    } catch (err) {
+      setStatus(`❌ ${err.message || "2FA verification failed"}`);
     }
   }
 
@@ -74,7 +109,12 @@ export default function MigrationUI() {
   return (
     <div className="min-h-screen bg-brand flex items-center justify-center p-6">
       <div className="bg-white shadow-xl rounded-2xl max-w-lg w-full p-10 space-y-6">
-        <img src="https://blob.tophhie.cloud/tophhiecloud-resources/Logos/tophhiecloud-colour-padded.png" class="mx-auto w-auto" style={{ maxWidth: "40%", height: "auto" }} />
+        <img
+          src="https://blob.tophhie.cloud/tophhiecloud-resources/Logos/tophhiecloud-colour-padded.png"
+          className="mx-auto w-auto"
+          style={{ maxWidth: "40%", height: "auto" }}
+          alt="Tophhie Cloud"
+        />
         <h1 className="text-2xl font-bold text-gray-900">Migrate to Tophhie Social</h1>
         <p className="text-gray-600">Move your Bluesky account in a few easy steps.</p>
 
@@ -88,24 +128,31 @@ export default function MigrationUI() {
           </div>
           <div className="flex justify-between mt-2">
             {stages.map((stage, i) => (
-                <div
+              <div
                 key={i}
                 className={`flex-1 text-xs ${
-                    i < progressStage
+                  i < progressStage
                     ? "text-green-600 font-medium"
                     : i === progressStage
                     ? "text-blue-600 font-medium"
                     : "text-gray-500"
                 } text-center`}
-                >
+              >
                 {i + 1}. {stage}
-                </div>
+              </div>
             ))}
-            </div>
+          </div>
         </div>
 
+        {/* Step 1: credentials (and 2FA when needed) */}
         {step === 1 && (
-          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); startMigration(); }}>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              needs2FA ? continueWith2FA(e) : startMigration();
+            }}
+          >
             <input
               type="text"
               placeholder="Old handle (e.g. alice.bsky.social)"
@@ -120,6 +167,19 @@ export default function MigrationUI() {
               onChange={(e) => updateField("password", e.target.value)}
               className="w-full p-3 border rounded-lg focus:ring focus:ring-blue-300"
             />
+
+            {/* Optional 2FA input; shows automatically when required */}
+            {(needs2FA || form.twoFactorCode) && (
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="2FA code (from email)"
+                value={form.twoFactorCode}
+                onChange={(e) => updateField("twoFactorCode", e.target.value)}
+                className="w-full p-3 border rounded-lg focus:ring focus:ring-blue-300"
+              />
+            )}
+
             <input
               type="email"
               placeholder="Email for new PDS"
@@ -134,15 +194,17 @@ export default function MigrationUI() {
               onChange={(e) => updateField("handle", e.target.value)}
               className="w-full p-3 border rounded-lg focus:ring focus:ring-blue-300"
             />
+
             <button
               type="submit"
               className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition"
             >
-              Start Migration
+              {needs2FA ? "Continue with 2FA" : "Start Migration"}
             </button>
           </form>
         )}
 
+        {/* Step 2: PLC token */}
         {step === 2 && (
           <div className="space-y-3">
             <p className="text-gray-700">Enter the PLC token you received via email:</p>
@@ -162,10 +224,13 @@ export default function MigrationUI() {
           </div>
         )}
 
+        {/* Step 3: done */}
         {step === 3 && (
           <div className="space-y-2 text-center">
             <p className="text-green-700 font-semibold text-lg">🎉 Migration complete!</p>
-            <p className="text-gray-700">You can now log in using the PDS URL 'tophhie.social'.</p>
+            <p className="text-gray-700">
+              You can now log in using the PDS URL <span className="font-mono">tophhie.social</span>.
+            </p>
           </div>
         )}
 
