@@ -15,6 +15,7 @@ export default function MigrationUI() {
   const [migrator, setMigrator] = useState(null);
   const [progressStage, setProgressStage] = useState(0);
   const [needs2FA, setNeeds2FA] = useState(false); // NEW
+  const [acceptedRisks, setAcceptedRisks] = useState(false);
 
   const stages = [
     "Login",
@@ -55,6 +56,10 @@ export default function MigrationUI() {
   }
 
   async function startMigration() {
+    if (!acceptedRisks) {
+      setStatus("Please confirm you understand the risks before continuing.");
+      return;
+    }
     try {
       setStatus("Starting migration...");
       setProgressStage(0);
@@ -194,9 +199,26 @@ export default function MigrationUI() {
               onChange={(e) => updateField("handle", e.target.value)}
               className="w-full p-3 border rounded-lg focus:ring focus:ring-blue-300"
             />
-
+            <input
+              type="checkbox"
+              checked={acceptedRisks}
+              onChange={(e) => setAcceptedRisks(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span style={{ "padding": "7pt" }}>
+            I understand the risks of migrating my account, have read the warnings{" "}
+            <a
+              href="https://github.com/bluesky-social/pds/blob/main/ACCOUNT_MIGRATION.md#%EF%B8%8F-warning-%EF%B8%8F-%EF%B8%8F"
+              target="_blank"
+              rel="noreferrer"
+              className="underline text-blue-600 hover:text-blue-700"
+            >
+              here
+            </a>, and accept that the creator or host of this tool is not liable and will not be able to help you in the event something goes wrong.
+          </span>
             <button
               type="submit"
+              disabled={!acceptedRisks}
               className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition"
             >
               {needs2FA ? "Continue with 2FA" : "Start Migration"}
@@ -219,7 +241,7 @@ export default function MigrationUI() {
               onClick={finishMigration}
               className="w-full bg-green-600 text-white font-semibold py-3 rounded-lg hover:bg-green-700 transition"
             >
-              Finalize Migration
+              Finalise Migration
             </button>
           </div>
         )}
