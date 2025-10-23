@@ -8,6 +8,11 @@
 /* Optional: custom base styles */
 body {
   @apply bg-gray-100 text-gray-900 antialiased;
+  background-size: cover;
+  background-position: center;
+  background-image: url('https://blob.tophhie.cloud/tophhiecloud-resources/Logos/illustration.png');
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
 
 h1, h2, h3, h4, h5, h6 {

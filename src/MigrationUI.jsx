@@ -112,7 +112,7 @@ export default function MigrationUI() {
   }
 
   return (
-    <div className="min-h-screen bg-brand flex items-center justify-center p-6">
+    <div className="min-h-screen flex items-center justify-center p-6">
       <div className="bg-white shadow-xl rounded-2xl max-w-lg w-full p-10 space-y-6">
         <img
           src="https://blob.tophhie.cloud/tophhiecloud-resources/Logos/tophhiecloud-colour-padded.png"
